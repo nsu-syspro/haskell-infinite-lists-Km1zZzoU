@@ -3,8 +3,8 @@
 
 module Task3 where
 
-import Task2 (Stream)
-import Data.Ratio (Ratio)
+import Task2 (Stream(..), fromList)
+import Data.Ratio (Ratio, numerator)
 
 -- | Power series represented as infinite stream of coefficients
 -- 
@@ -32,6 +32,15 @@ newtype Series a = Series
   --   @a0, a1, a2, ...@
   }
 
+mapS :: (a -> b) -> Stream a -> Stream b
+mapS f (Stream a as) = Stream (f a) (mapS f as)
+
+zipWithS :: (a -> b -> c) -> Stream a -> Stream b -> Stream c
+zipWithS f (Stream a as) (Stream b bs) = Stream (f a b) (zipWithS f as bs)
+
+repeatS :: a -> Stream a
+repeatS a = let s = Stream a s in s
+
 -- | Power series corresponding to single @x@
 --
 -- First 10 coefficients:
@@ -40,7 +49,7 @@ newtype Series a = Series
 -- [0,1,0,0,0,0,0,0,0,0]
 --
 x :: Num a => Series a
-x = error "TODO: define x"
+x = Series (fromList 0 [0, 1])
 
 -- | Multiplies power series by given number
 -- 
@@ -58,7 +67,7 @@ x = error "TODO: define x"
 --
 infixl 7 *:
 (*:) :: Num a => a -> Series a -> Series a
-(*:) = error "TODO: define (*:)"
+c *: Series as = Series (mapS (c*) as)
 
 -- | Helper function for producing integer
 -- coefficients from generating function
@@ -70,7 +79,7 @@ infixl 7 *:
 -- [2,3,0,0,0,0,0,0,0,0]
 --
 gen :: Series (Ratio Integer) -> Stream Integer
-gen = error "TODO: define gen"
+gen (Series s) = mapS numerator s
 
 -- | Returns infinite stream of ones
 --
@@ -80,7 +89,7 @@ gen = error "TODO: define gen"
 -- [1,1,1,1,1,1,1,1,1,1]
 --
 ones :: Stream Integer
-ones = error "TODO: define ones"
+ones = gen (1 / (1 - x))
 
 -- | Returns infinite stream of natural numbers (excluding zero)
 --
@@ -90,7 +99,7 @@ ones = error "TODO: define ones"
 -- [1,2,3,4,5,6,7,8,9,10]
 --
 nats :: Stream Integer
-nats = error "TODO: define nats (Task3)"
+nats = gen (1 / ((1 - x) * (1 - x)))
 
 -- | Returns infinite stream of fibonacci numbers (starting with zero)
 --
@@ -100,5 +109,26 @@ nats = error "TODO: define nats (Task3)"
 -- [0,1,1,2,3,5,8,13,21,34]
 --
 fibs :: Stream Integer
-fibs = error "TODO: define fibs (Task3)"
+fibs = gen (x / (1 - x - x * x))
 
+instance Num a => Num (Series a) where
+  fromInteger n = Series (fromList 0 [fromInteger n])
+  
+  negate (Series as) = Series (mapS negate as)
+  
+  (+) (Series as) (Series bs) = Series (zipWithS (+) as bs)
+  
+  (*) (Series (Stream a0 a')) (Series (Stream b0 b')) = 
+      Series (Stream (a0 * b0) (coefficients (a0 *: Series b' + Series a' * Series (Stream b0 b'))))
+  
+  abs = id
+  signum _ = 1
+
+instance Fractional a => Fractional (Series a) where
+  fromRational r = Series (fromList 0 [fromRational r])
+  
+  (/) (Series (Stream a0 a')) (Series (Stream b0 b')) =
+      let q = a0 / b0
+          num = Series a' - q *: Series b'
+          den = Series (Stream b0 b')
+      in Series (Stream q (coefficients (num / den)))

@@ -3,11 +3,17 @@
 
 module Task2 where
 
+import Prelude hiding (foldr, foldMap)
+import Data.Foldable (Foldable(foldr), toList)
+
 -- | Infinite stream of elements
 data Stream a = Stream a (Stream a)
 
+instance Show a => Show (Stream a) where
+  show s = show (take 10 (toList s))
+
 instance Foldable Stream where
-  foldMap = error "TODO: define foldMap"
+  foldr f z (Stream a as) = f a (foldr f z as)
 
 -- | Converts given list into stream
 --
@@ -22,7 +28,7 @@ instance Foldable Stream where
 -- [1,2,3,4,5,6,7,8,9,10]
 --
 fromList :: a -> [a] -> Stream a
-fromList = error "TODO: define fromList"
+fromList def = foldr Stream (let s = Stream def s in s)
 
 -- | Builds stream from given seed value by applying given step function
 --
@@ -36,7 +42,7 @@ fromList = error "TODO: define fromList"
 -- [5,4,3,2,1,0,1,2,3,4]
 --
 unfold :: (b -> (a, b)) -> b -> Stream a
-unfold = error "TODO: define unfold"
+unfold f b = let (a, b') = f b in Stream a (unfold f b')
 
 -- | Returns infinite stream of natural numbers (excluding zero)
 --
@@ -46,7 +52,7 @@ unfold = error "TODO: define unfold"
 -- [1,2,3,4,5,6,7,8,9,10]
 --
 nats :: Stream Integer
-nats = error "TODO: define nats (Task2)"
+nats = unfold (\n -> (n, n + 1)) 1
 
 -- | Returns infinite stream of fibonacci numbers (starting with zero)
 --
@@ -56,7 +62,7 @@ nats = error "TODO: define nats (Task2)"
 -- [0,1,1,2,3,5,8,13,21,34]
 --
 fibs :: Stream Integer
-fibs = error "TODO: define fibs (Task2)"
+fibs = unfold (\(a, b) -> (a, (b, a + b))) (0, 1)
 
 -- | Returns infinite stream of prime numbers
 --
@@ -66,7 +72,7 @@ fibs = error "TODO: define fibs (Task2)"
 -- [2,3,5,7,11,13,17,19,23,29]
 --
 primes :: Stream Integer
-primes = error "TODO: define primes (Task2)"
+primes = unfold sieve (fromList 0 [2..])
 
 -- | One step of Sieve of Eratosthenes
 -- (to be used with 'unfoldr')
@@ -83,4 +89,7 @@ primes = error "TODO: define primes (Task2)"
 -- (3,[5,7,11,13,17,19,23,25,29,31])
 --
 sieve :: Stream Integer -> (Integer, Stream Integer)
-sieve = error "TODO: define sieve (Task2)"
+sieve (Stream p xs) = (p, filterS (\n -> n `mod` p /= 0) xs)
+
+filterS :: (a -> Bool) -> Stream a -> Stream a
+filterS f = foldr (\a as -> if f a then Stream a as else as) undefined 
